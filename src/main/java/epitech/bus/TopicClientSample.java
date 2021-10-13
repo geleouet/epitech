@@ -2,16 +2,16 @@ package epitech.bus;
 
 import java.util.concurrent.TimeUnit;
 
-public class BusClientSample {
+public class TopicClientSample {
 
 	
 	public static void main(String[] args) {
 
-		var client = BusClient.builder()
+		var client = BusTopicClient.builder()
 				.port(9207)
 				.create()
 				.topic("hello");
-		client.subscribe(m -> System.out.println(m));
+		client.subscribe(System.out::println);
 		client.send("world");
 
 		try {
