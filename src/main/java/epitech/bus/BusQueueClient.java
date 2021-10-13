@@ -118,6 +118,7 @@ public class BusQueueClient {
 				@Override
 				public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
 					try {
+						System.out.println("[" + queue + "] on : " + data);
 						BusMessage readValue = mapper.readValue(data.toString(), BusMessage.class);
 						listeners.getOrDefault(queue, Collections.emptyList()).forEach(c -> {
 							boolean test = c.test(readValue.message);
@@ -136,7 +137,6 @@ public class BusQueueClient {
 					} catch (JsonProcessingException e) {
 						e.printStackTrace();
 					}
-					System.out.println("[" + queue + "] on : " + data);
 					return Listener.super.onText(webSocket, data, last);
 				}
 

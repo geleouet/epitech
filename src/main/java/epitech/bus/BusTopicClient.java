@@ -110,6 +110,7 @@ public class BusTopicClient {
 			return new Listener() {
 				@Override
 				public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
+					System.out.println("[" + topic + "] on : " + data);
 					try {
 						BusMessage readValue = new ObjectMapper().readValue(data.toString(), BusMessage.class);
 						listeners.getOrDefault(topic, Collections.emptyList()).forEach(c -> c.accept(readValue.message));
@@ -117,7 +118,6 @@ public class BusTopicClient {
 					} catch (JsonProcessingException e) {
 						e.printStackTrace();
 					}
-					System.out.println("[" + topic + "] on : " + data);
 					return Listener.super.onText(webSocket, data, last);
 				}
 
