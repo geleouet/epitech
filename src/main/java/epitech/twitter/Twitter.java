@@ -57,6 +57,14 @@ public class Twitter {
 		app.get("/logout", ctx -> {
 			ctx.cookie("id", null);
 		});
+		app.get("/whoami", ctx -> {
+			String id = ctx.cookie("id");
+			if (id == null) {
+				ctx.status(401);
+				return;
+			}
+			ctx.result(id);
+		});
 		
 		
 		app.start(port);
