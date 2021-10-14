@@ -53,7 +53,9 @@ public class Twitter {
 				ctx.status(400);
 				ctx.result("Already existing");
 			}
-			users.add(new User(login, idsUsers.getAndIncrement()));
+			else {
+				users.add(new User(login, idsUsers.getAndIncrement()));
+			}
 		});
 		app.get("/login/{login}", ctx -> {
 			String login = ctx.pathParam("login");
