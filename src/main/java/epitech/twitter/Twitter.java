@@ -2,14 +2,25 @@ package epitech.twitter;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import io.javalin.Javalin;
 import io.javalin.http.NotFoundResponse;
+import io.javalin.http.UnauthorizedResponse;
 
 public class Twitter {
 
+	public static class Tweet {
+		public String message;
+		public Tweet() {
+		}
+		public Tweet(String message) {
+			this.message = message;
+		}
+
+	}
 	
 	public static class User {
 		public int id;
@@ -58,6 +69,7 @@ public class Twitter {
 			ctx.cookie("id", null);
 		});
 		app.get("/whoami", ctx -> {
+			UUID.randomUUID().toString();
 			String id = ctx.cookie("id");
 			if (id == null) {
 				ctx.status(401);
@@ -65,7 +77,15 @@ public class Twitter {
 			}
 			ctx.result(id);
 		});
-		
+		app.post("/postTweet", ctx -> {
+			Integer id = Integer.parseInt(ctx.cookie("id"));
+			Tweet tweet = ctx.bodyAsClass(Tweet.class);
+			Optional<User> user = users.stream().filter(u -> u.id == id).findAny();
+			if (user.isEmpty()) {
+				throw new UnauthorizedResponse();
+			}
+			System.out.println(user.get().name + "=>" + tweet.message);
+		});
 		
 		app.start(port);
 	}
