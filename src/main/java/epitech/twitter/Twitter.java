@@ -1,11 +1,20 @@
 package epitech.twitter;
 
+import static java.util.Collections.reverseOrder;
+import static java.util.Comparator.comparing;
+import static java.util.stream.Collectors.toList;
+
+import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.net.http.HttpRequest.BodyPublishers;
+import java.net.http.HttpResponse.BodyHandlers;
 import java.time.Instant;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.mapper.reflect.BeanMapper;
@@ -143,10 +152,12 @@ public class Twitter {
 
 	}
 
-	public static void main(String[] args) {
+	public static void main(String[] args) throws IOException, InterruptedException {
 		int port = Integer.parseInt(System.getProperty("port", "9001"));
+		int portGateway = Integer.parseInt(System.getProperty("portGateway", "9021"));
 		Jdbi jdbi = Database.start("twitter");
 		initDB(jdbi);
+		registerSelf(port, portGateway);
 
 		ObjectMapper mapper = new ObjectMapper();
 		mapper.findAndRegisterModules();
@@ -190,6 +201,7 @@ public class Twitter {
 			ctx.result(id);
 		});
 		app.post("/postTweet", ctx -> {
+			ctx.cookieMap().entrySet().forEach(e -> System.out.println(e.getKey() + ":"+ e.getValue()));
 			Integer id = Integer.parseInt(ctx.cookie("id"));
 			Tweet tweet = ctx.bodyAsClass(Tweet.class);
 			Optional<User> user = users(jdbi).stream().filter(u -> u.id == id).findAny();
@@ -208,12 +220,27 @@ public class Twitter {
 		});
 		app.get("/timeline", ctx -> {
 			Integer id = Integer.parseInt(ctx.cookie("id"));
-			List<Post> timeline = follows(jdbi).stream().filter(f -> f.idUser == id).peek(f -> System.out.println(f.idUser + " => " + f.idFollowed)).flatMap(f -> posts(jdbi).stream().filter(p -> p.idAuthor == f.idFollowed))
-					.sorted(Comparator.comparing(p -> p.creationDate)).limit(10).collect(Collectors.toList());
+			List<Post> timeline = follows(jdbi).stream()
+					.filter(f -> f.idUser == id)
+					.flatMap(f -> posts(jdbi).stream().filter(p -> p.idAuthor == f.idFollowed))
+					.sorted(reverseOrder(comparing(p -> p.creationDate)))
+					.limit(10)
+					.collect(toList());
 			ctx.json(timeline);
 		});
 
 		app.start(port);
+	}
+
+	private static void registerSelf(int port, int portGateway) throws IOException, InterruptedException {
+		HttpClient httpClient = HttpClient.newBuilder()
+				.build();
+		HttpRequest request = HttpRequest.newBuilder(URI.create("http://localhost:" + portGateway + "/register/twitter"))
+				.POST(BodyPublishers.ofString("http://localhost:" + port+""))
+				.build();
+		HttpResponse<String> send = httpClient.send(request, BodyHandlers.ofString());
+		System.out.println(send.statusCode());
+		System.out.println(send.body());
 	}
 
 	private static void add(Jdbi jdbi, Follow follow) {

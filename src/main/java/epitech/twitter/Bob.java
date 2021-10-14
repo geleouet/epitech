@@ -20,7 +20,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 public class Bob {
 
 	static DateTimeFormatter formatter =
-		    DateTimeFormatter.ofLocalizedDateTime( FormatStyle.SHORT )
+		    DateTimeFormatter.ofLocalizedDateTime( FormatStyle.FULL )
 		                     .withLocale( Locale.FRANCE )
 		                     .withZone( ZoneId.systemDefault() );
 	public static class Tweet {
@@ -34,7 +34,8 @@ public class Bob {
 	}
 	
 	public static void main(String[] args) throws IOException, InterruptedException {
-		int port = Integer.parseInt(System.getProperty("port", "9001"));
+		int port = Integer.parseInt(System.getProperty("port", "9021"));
+		String path = "/twitter";
 		System.out.println("Starting Bob with port = " + port);
 
 		CookieManager cookieManager = new CookieManager();
@@ -45,14 +46,14 @@ public class Bob {
 				.build();
 		{
 
-			HttpRequest request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/register/Bob"))
+			HttpRequest request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + path + "/register/Bob"))
 					.build();
 			HttpResponse<String> send = httpClient.send(request, BodyHandlers.ofString());
 			System.out.println(send.statusCode());
 			System.out.println(send.body());
 		}
 		{
-			HttpRequest request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/login/Bob"))
+			HttpRequest request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + path + "/login/Bob"))
 					.build();
 			HttpResponse<String> send = httpClient.send(request, BodyHandlers.ofString());
 			System.out.println(send.statusCode());
@@ -62,13 +63,13 @@ public class Bob {
 		while (true)
 		{
 			Tweet tweet = new Tweet("Il est " + formatter.format(Instant.now()));
-			HttpRequest request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/postTweet"))
+			HttpRequest request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + path + "/postTweet"))
 					.POST(BodyPublishers.ofString(new ObjectMapper().writeValueAsString(tweet)))
 					.build();
 			HttpResponse<String> send = httpClient.send(request, BodyHandlers.ofString());
 			System.out.println(send.statusCode());
 			System.out.println(send.body());
-			Thread.sleep(60_000);
+			Thread.sleep(10_000);
 		}
 	}
 }

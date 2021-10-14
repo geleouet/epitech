@@ -49,7 +49,8 @@ public class Alice {
 	}
 	
 	public static void main(String[] args) throws IOException, InterruptedException {
-		int port = Integer.parseInt(System.getProperty("port", "9001"));
+		int port = Integer.parseInt(System.getProperty("port", "9021"));
+		String path = "/twitter";
 		System.out.println("Starting Alice with port = " + port);
 
 		CookieManager cookieManager = new CookieManager();
@@ -60,28 +61,28 @@ public class Alice {
 				.build();
 		{
 
-			HttpRequest request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/register/Alice"))
+			HttpRequest request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + path + "/register/Alice"))
 					.build();
 			HttpResponse<String> send = httpClient.send(request, BodyHandlers.ofString());
 			System.out.println(send.statusCode());
 			System.out.println(send.body());
 		}
 		{
-			HttpRequest request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/login/Alice"))
+			HttpRequest request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + path +  "/login/Alice"))
 					.build();
 			HttpResponse<String> send = httpClient.send(request, BodyHandlers.ofString());
 			System.out.println(send.statusCode());
 			System.out.println(send.body());
 		}
 		{
-			HttpRequest request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/members"))
+			HttpRequest request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + path + "/members"))
 					.build();
 			HttpResponse<String> send = httpClient.send(request, BodyHandlers.ofString());
 			System.out.println(send.statusCode());
 			System.out.println(send.body());
 			List<User> users = new ObjectMapper().readValue(send.body(), new TypeReference<List<User>>(){});
 			User bob = users.stream().filter(u -> "Bob".equals(u.name)).findAny().get();
-			HttpRequest requestFollowBob = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/follow/"+bob.id))
+			HttpRequest requestFollowBob = HttpRequest.newBuilder(URI.create("http://localhost:" + port + path + "/follow/"+bob.id))
 					.build();
 			HttpResponse<String> sendFollowBob = httpClient.send(requestFollowBob, BodyHandlers.ofString());
 			System.out.println(sendFollowBob.statusCode());
@@ -89,7 +90,7 @@ public class Alice {
 		}
 		
 		{
-			HttpRequest request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/timeline"))
+			HttpRequest request = HttpRequest.newBuilder(URI.create("http://localhost:" + port +path+ "/timeline"))
 					.build();
 			HttpResponse<String> send = httpClient.send(request, BodyHandlers.ofString());
 			System.out.println(send.statusCode());
