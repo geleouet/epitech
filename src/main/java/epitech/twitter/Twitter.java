@@ -140,10 +140,15 @@ public class Twitter {
 			Integer id = Integer.parseInt(ctx.cookie("id"));
 			Integer idUser = ctx.pathParamAsClass("idUser", Integer.class).get();
 			Follow follow = new Follow(id, idUser);
+			follows.add(follow);
 		});
 		app.get("/timeline", ctx -> {
 			Integer id = Integer.parseInt(ctx.cookie("id"));
-			List<Post> timeline = follows.stream().filter(f -> f.idUser == id).flatMap(f -> posts.stream().filter(p -> p.idAuthor == f.idFollowed)).sorted(Comparator.comparing(p -> p.timestamp)).limit(10).collect(Collectors.toList());
+			List<Post> timeline = follows.stream()
+					.filter(f -> f.idUser == id)
+					.peek(f -> System.out.println(f.idUser +" => " + f.idFollowed))
+					.flatMap(f -> posts.stream().filter(p -> p.idAuthor == f.idFollowed)).sorted(Comparator.comparing(p -> p.timestamp))
+					.limit(10).collect(Collectors.toList());
 			ctx.json(timeline);
 		});
 
