@@ -27,7 +27,7 @@ public class KeyValue {
 		});
 
 		
-		app.delete("/delte/{key}", ctx -> {
+		app.get("/delete/{key}", ctx -> { // should be a delete
 			map.remove(ctx.pathParam("key"));
 		});
 

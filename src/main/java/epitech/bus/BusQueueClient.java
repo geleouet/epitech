@@ -4,13 +4,11 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.WebSocket;
 import java.net.http.WebSocket.Listener;
-import java.util.Collections;
-import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -88,20 +86,40 @@ public class BusQueueClient {
 		}
 
 		private void add(Predicate<String> callback, String queue) {
-			listeners.computeIfAbsent(queue, this::subscribeToBus).add(callback);
+			listeners.computeIfAbsent(queue, this::subscribeToBus).set(callback);
 		}
 
 		public Queue queue(String queue) {
 			return new Queue(this, queue);
 		}
 
+		private class Wrapper {
+			Predicate<String> t;
+
+			public Wrapper(Predicate<String> t) {
+				super();
+				this.t = t;
+			}
+			
+			public void set(Predicate<String> t) {
+				this.t = t != null ? t : __ -> false;
+			}
+
+			public void apply(Consumer<Wrapper> c) {
+				c.accept(this);
+			}
+
+			public boolean test(String message) {
+				return t.test(message);
+			}
+		}
 		private HttpClient client = HttpClient.newHttpClient();;
-		private ConcurrentMap<String, List<Predicate<String>>> listeners = new ConcurrentHashMap<>();
+		private ConcurrentMap<String, Wrapper> listeners = new ConcurrentHashMap<>();
 		private ConcurrentMap<String, WebSocket> webSockets = new ConcurrentHashMap<>();
 
-		private List<Predicate<String>> subscribeToBus(String queue) {
+		private Wrapper subscribeToBus(String queue) {
 			connectToWebSocket(queue);
-			return new CopyOnWriteArrayList<>();
+			return new Wrapper(__ -> false);
 		}
 
 		// https://golb.hplar.ch/2019/01/java-11-http-client.html
@@ -120,7 +138,7 @@ public class BusQueueClient {
 					try {
 						System.out.println("[" + queue + "] on : " + data);
 						BusMessage readValue = mapper.readValue(data.toString(), BusMessage.class);
-						listeners.getOrDefault(queue, Collections.emptyList()).forEach(c -> {
+						listeners.getOrDefault(queue, new Wrapper(__ -> false)).apply(c -> {
 							boolean test = c.test(readValue.message);
 							try {
 								if (test) {
