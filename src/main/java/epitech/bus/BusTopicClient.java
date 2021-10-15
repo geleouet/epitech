@@ -20,11 +20,13 @@ import epitech.bus.Bus.BusMessage;
 
 public class BusTopicClient {
 
+	static boolean log = false;
+	
 	public static BusClientConfigBuilder builder() {
 		return new BusClientConfigBuilder();
 	}
 
-	static class Topic {
+	public static class Topic {
 
 		private final String channel;
 		private final BusClientConfig busClientConfig;
@@ -62,7 +64,7 @@ public class BusTopicClient {
 
 	}
 
-	static class BusClientConfig {
+	public static class BusClientConfig {
 
 		private int port;
 
@@ -102,7 +104,7 @@ public class BusTopicClient {
 		private WebSocket connectToWebSocket(String topic) {
 			Listener wsListener = createListener(topic);
 			WebSocket webSocket = client.newWebSocketBuilder().buildAsync(URI.create("ws://localhost:" + port + "/topic/" + topic), wsListener).join();
-			webSockets.put(topic, webSocket);
+			//webSockets.put(topic, webSocket);
 			return webSocket;
 		}
 
@@ -110,7 +112,9 @@ public class BusTopicClient {
 			return new Listener() {
 				@Override
 				public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
-					System.out.println("[" + topic + "] on : " + data);
+					if (log) {
+						System.out.println("[" + topic + "] on : " + data);
+					}
 					try {
 						BusMessage readValue = new ObjectMapper().readValue(data.toString(), BusMessage.class);
 						listeners.getOrDefault(topic, Collections.emptyList()).forEach(c -> c.accept(readValue.message));
@@ -123,7 +127,9 @@ public class BusTopicClient {
 
 				@Override
 				public void onOpen(WebSocket webSocket) {
-					System.out.println("[" + topic + "] onOpen");
+					if (log) {
+						System.out.println("[" + topic + "] onOpen");
+					}
 					Listener.super.onOpen(webSocket);
 				}
 

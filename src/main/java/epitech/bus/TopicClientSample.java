@@ -10,7 +10,7 @@ public class TopicClientSample {
 		var client = BusTopicClient.builder()
 				.port(9207)
 				.create()
-				.topic("hello");
+				.topic("helloworld");
 		client.subscribe(System.out::println);
 		client.send("world");
 

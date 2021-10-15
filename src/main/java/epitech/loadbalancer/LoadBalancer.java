@@ -14,6 +14,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+import epitech.logs.LogApi;
 import io.javalin.Javalin;
 
 public class LoadBalancer {
@@ -21,7 +22,9 @@ public class LoadBalancer {
 
 	public static void main(String[] args) {
 		int port = Integer.parseInt(System.getProperty("port", "9021"));
+		int portBus = Integer.parseInt(System.getProperty("portBus", "9207"));
 
+		LogApi log = new LogApi("LoadBalancer", portBus);
 		Javalin app = Javalin.create();
 
 		ConcurrentMap<String, Set<String>> services = new ConcurrentHashMap<>();
@@ -45,7 +48,7 @@ public class LoadBalancer {
 			}
 			
 			String url = new ArrayList<>(urls).get((int) (Math.random() * urls.size()));
-			System.out.println(Arrays.toString(split) + " => " + url);
+			log.info(Arrays.toString(split) + " => " + url);
 			
 			String remainingPath = path.substring(1 + service.length());
 			String newUrl = url+remainingPath;
@@ -82,7 +85,7 @@ public class LoadBalancer {
 			}
 			
 			String url = new ArrayList<>(urls).get((int) (Math.random() * urls.size()));
-			System.out.println(Arrays.toString(split) + " => " + url);
+			log.info(Arrays.toString(split) + " => " + url);
 			
 			String remainingPath = path.substring(1 + service.length());
 			String newUrl = url+remainingPath;

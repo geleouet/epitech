@@ -24,7 +24,9 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import epitech.database.Database;
+import epitech.logs.LogApi;
 import io.javalin.Javalin;
+import io.javalin.http.HttpCode;
 import io.javalin.http.NotFoundResponse;
 import io.javalin.http.UnauthorizedResponse;
 import io.javalin.plugin.json.JavalinJackson;
@@ -159,10 +161,16 @@ public class TwitterService {
 	
 	private static int portLogin;
 
+	private static LogApi log;
+
 	public static void main(String[] args) throws IOException, InterruptedException {
 		int port = Integer.parseInt(System.getProperty("port", "9001"));
 		portLogin = Integer.parseInt(System.getProperty("portLogin", "9005"));
 
+		int portBus = Integer.parseInt(System.getProperty("portBus", "9207"));
+		log = new LogApi("TwitterService["+port+"]", portBus);
+
+		
 		int portGateway = Integer.parseInt(System.getProperty("portGateway", "9021"));
 		registerSelf(port, portGateway);
 		
@@ -219,7 +227,7 @@ public class TwitterService {
 				throw new UnauthorizedResponse();
 			}
 			Post newPost = add(jdbi, id, tweet.message);
-			System.out.println(user.get().name + "=>" + tweet.message);
+			log.info(user.get().name + "=>" + tweet.message);
 			ctx.json(newPost);
 		});
 		app.get("/follow/{idUser}", ctx -> {
@@ -227,6 +235,7 @@ public class TwitterService {
 			Integer idUser = ctx.pathParamAsClass("idUser", Integer.class).get();
 			Follow follow = new Follow(id, idUser);
 			add(jdbi, follow);
+			log.info(id + " follow " + idUser);
 		});
 		app.get("/timeline", ctx -> {
 			Integer id = Integer.parseInt(ctx.cookie("id"));
@@ -249,6 +258,9 @@ public class TwitterService {
 				.POST(BodyPublishers.ofString("http://localhost:" + port+""))
 				.build();
 		HttpResponse<String> send = httpClient.send(request, BodyHandlers.ofString());
+		if (send.statusCode() == HttpCode.OK.getStatus()) {
+			log.info("Registered");
+		}
 		System.out.println(send.statusCode());
 		System.out.println(send.body());
 	}
