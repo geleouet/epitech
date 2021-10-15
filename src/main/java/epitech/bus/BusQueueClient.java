@@ -22,7 +22,7 @@ public class BusQueueClient {
 		return new BusClientConfigBuilder();
 	}
 
-	static class Queue {
+	public static class Queue {
 
 		private final String channel;
 		private final BusClientConfig busClientConfig;
@@ -61,7 +61,7 @@ public class BusQueueClient {
 
 	}
 
-	static class BusClientConfig {
+	public static class BusClientConfig {
 
 		private int port;
 		ObjectMapper mapper = new ObjectMapper();
