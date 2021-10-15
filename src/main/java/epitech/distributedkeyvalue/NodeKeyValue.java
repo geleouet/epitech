@@ -247,6 +247,7 @@ public class NodeKeyValue {
 		} catch (IOException | InterruptedException e) {
 			// Cannot join reference
 			// start election
+			// TODO
 			System.exit(-1);
 		} catch (Exception e) {
 			e.printStackTrace();
