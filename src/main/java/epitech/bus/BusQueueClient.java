@@ -4,12 +4,15 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.WebSocket;
 import java.net.http.WebSocket.Listener;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -18,6 +21,8 @@ import epitech.bus.Bus.BusMessage;
 
 public class BusQueueClient {
 
+	static boolean log = false;
+	
 	public static BusClientConfigBuilder builder() {
 		return new BusClientConfigBuilder();
 	}
@@ -126,34 +131,44 @@ public class BusQueueClient {
 		private WebSocket connectToWebSocket(String queue) {
 			Listener wsListener = createListener(queue);
 			WebSocket webSocket = client.newWebSocketBuilder().buildAsync(URI.create("ws://localhost:" + port + "/queue/" + queue), wsListener).join();
-			webSockets.put(queue, webSocket);
 			return webSocket;
 		}
 
 		private Listener createListener(String queue) {
 			return new Listener() {
 
+				List<CharSequence> parts = new ArrayList<>();
+				 
 				@Override
 				public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
-					try {
+					if (log) {
 						System.out.println("[" + queue + "] on : " + data);
-						BusMessage readValue = mapper.readValue(data.toString(), BusMessage.class);
-						listeners.getOrDefault(queue, new Wrapper(__ -> false)).apply(c -> {
-							boolean test = c.test(readValue.message);
-							try {
-								if (test) {
-									webSocket.sendText(mapper.writeValueAsString(new Bus.QueueMessage("ACK", readValue.message)), true);
-								}
-								else {
-									webSocket.sendText(mapper.writeValueAsString(new Bus.QueueMessage("NACK", readValue.message)), true);
-								}
-							} catch (JsonProcessingException e) {
+					}
+					parts.add(data);
+		            
+					if (last) {
+						String message = parts.stream().collect(Collectors.joining());
+						parts.clear();
+
+						try {
+							BusMessage readValue = mapper.readValue(message.toString(), BusMessage.class);
+							listeners.getOrDefault(queue, new Wrapper(__ -> false)).apply(c -> {
+								boolean test = c.test(readValue.message);
+								try {
+									if (test) {
+										webSocket.sendText(mapper.writeValueAsString(new Bus.QueueMessage("ACK", readValue.message)), true);
+									}
+									else {
+										webSocket.sendText(mapper.writeValueAsString(new Bus.QueueMessage("NACK", readValue.message)), true);
+									}
+								} catch (JsonProcessingException e) {
 									e.printStackTrace();
 								}
-						});
+							});
 
-					} catch (JsonProcessingException e) {
-						e.printStackTrace();
+						} catch (JsonProcessingException e) {
+							e.printStackTrace();
+						}
 					}
 					return Listener.super.onText(webSocket, data, last);
 				}

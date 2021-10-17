@@ -8,6 +8,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandlers;
+import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.FormatStyle;
@@ -16,6 +17,8 @@ import java.util.Locale;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
+import epitech.twitter.WorkerService.Post;
 
 public class Alice {
 
@@ -46,6 +49,57 @@ public class Alice {
 		}
 	}
 	
+	public static class Post {
+		public String idPost;
+		public Instant creationDate;
+		public Integer idAuthor;
+		public String message;
+
+		public Post() {
+		}
+
+		public Post(String idPost, Instant timestamp, Integer idAuthor, String message) {
+			super();
+			this.idPost = idPost;
+			this.creationDate = timestamp;
+			this.idAuthor = idAuthor;
+			this.message = message;
+		}
+
+		public String getIdPost() {
+			return idPost;
+		}
+
+		public void setIdPost(String idPost) {
+			this.idPost = idPost;
+		}
+
+		public Instant getCreationDate() {
+			return creationDate;
+		}
+
+		public void setCreationDate(Instant creationDate) {
+			this.creationDate = creationDate;
+		}
+
+		public Integer getIdAuthor() {
+			return idAuthor;
+		}
+
+		public void setIdAuthor(Integer idAuthor) {
+			this.idAuthor = idAuthor;
+		}
+
+		public String getMessage() {
+			return message;
+		}
+
+		public void setMessage(String message) {
+			this.message = message;
+		}
+
+	}
+	
 	public static void main(String[] args) throws IOException, InterruptedException {
 		int port = Integer.parseInt(System.getProperty("port", "9021"));
 		String path = "/twitter";
@@ -53,6 +107,10 @@ public class Alice {
 
 		CookieManager cookieManager = new CookieManager();
 		cookieManager.setCookiePolicy(CookiePolicy.ACCEPT_ALL);
+		
+		ObjectMapper mapper = new ObjectMapper();
+		mapper.findAndRegisterModules();
+
 		
 		HttpClient httpClient = HttpClient.newBuilder()
 				.cookieHandler(cookieManager) // cookies are necessary for session handling
@@ -73,14 +131,15 @@ public class Alice {
 			System.out.println(send.body());
 		}
 		{
+			String influencerName = "Bob";
 			HttpRequest request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + path + "/members"))
 					.build();
 			HttpResponse<String> send = httpClient.send(request, BodyHandlers.ofString());
 			System.out.println(send.statusCode());
 			System.out.println(send.body());
 			List<User> users = new ObjectMapper().readValue(send.body(), new TypeReference<List<User>>(){});
-			User bob = users.stream().filter(u -> "Bob".equals(u.name)).findAny().get();
-			HttpRequest requestFollowBob = HttpRequest.newBuilder(URI.create("http://localhost:" + port + path + "/follow/"+bob.id))
+			User influencer = users.stream().filter(u -> influencerName.equals(u.name)).findAny().get();
+			HttpRequest requestFollowBob = HttpRequest.newBuilder(URI.create("http://localhost:" + port + path + "/follow/"+influencer.id))
 					.build();
 			HttpResponse<String> sendFollowBob = httpClient.send(requestFollowBob, BodyHandlers.ofString());
 			System.out.println(sendFollowBob.statusCode());
@@ -88,11 +147,18 @@ public class Alice {
 		}
 		
 		{
-			HttpRequest request = HttpRequest.newBuilder(URI.create("http://localhost:" + port +path+ "/timeline"))
+			HttpRequest request = HttpRequest.newBuilder(URI.create("http://localhost:" + port +path+ "/history"))
 					.build();
 			HttpResponse<String> send = httpClient.send(request, BodyHandlers.ofString());
 			System.out.println(send.statusCode());
 			System.out.println(send.body());
+			List<Post> posts = mapper.readValue(send.body(), new TypeReference<List<Post>>(){});
+			for (Post p : posts) {
+				System.out.println(p.idAuthor);
+				System.out.println(p.creationDate);
+				System.out.println(p.message);
+				System.out.println();
+			}
 		}
 		
 		

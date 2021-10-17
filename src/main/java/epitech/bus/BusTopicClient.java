@@ -4,6 +4,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.WebSocket;
 import java.net.http.WebSocket.Listener;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -12,6 +13,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -110,18 +112,27 @@ public class BusTopicClient {
 
 		private Listener createListener(String topic) {
 			return new Listener() {
+				
+				 List<CharSequence> parts = new ArrayList<>();
+				
 				@Override
 				public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
 					if (log) {
-						System.out.println("[" + topic + "] on : " + data);
+						System.out.println("[" + topic + "] on : " + data + " (" + last + ")");
 					}
-					try {
-						BusMessage readValue = new ObjectMapper().readValue(data.toString(), BusMessage.class);
-						listeners.getOrDefault(topic, Collections.emptyList()).forEach(c -> c.accept(readValue.message));
-
-					} catch (JsonProcessingException e) {
-						e.printStackTrace();
-					}
+					parts.add(data);
+		            
+		            if (last) {
+		            	String message = parts.stream().collect(Collectors.joining());
+		            	parts.clear();
+		            	try {
+		            		BusMessage readValue = new ObjectMapper().readValue(message.toString(), BusMessage.class);
+		            		listeners.getOrDefault(topic, Collections.emptyList()).forEach(c -> c.accept(readValue.message));
+		            		
+		            	} catch (JsonProcessingException e) {
+		            		e.printStackTrace();
+		            	}
+		            }
 					return Listener.super.onText(webSocket, data, last);
 				}
 

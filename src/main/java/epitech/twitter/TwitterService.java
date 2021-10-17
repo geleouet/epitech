@@ -13,19 +13,25 @@ import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandlers;
 import java.rmi.ServerException;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.h2.jdbc.JdbcSQLIntegrityConstraintViolationException;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.mapper.reflect.BeanMapper;
+import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import epitech.bus.BusQueueClient;
 import epitech.database.Database;
 import epitech.logs.LogApi;
 import io.javalin.Javalin;
+import io.javalin.http.BadRequestResponse;
 import io.javalin.http.HttpCode;
 import io.javalin.http.NotFoundResponse;
 import io.javalin.http.UnauthorizedResponse;
@@ -156,6 +162,19 @@ public class TwitterService {
 
 	}
 	
+	static class NewPostMessage {
+		public Post message;
+		public Integer timeline;
+		public NewPostMessage() {
+		}
+		public NewPostMessage(Post message, Integer timeline) {
+			super();
+			this.message = message;
+			this.timeline = timeline;
+		}
+		
+	}
+	
 	static HttpClient httpClient = HttpClient.newBuilder()
 			.build();
 	
@@ -164,12 +183,32 @@ public class TwitterService {
 	private static LogApi log;
 
 	public static void main(String[] args) throws IOException, InterruptedException {
-		int port = Integer.parseInt(System.getProperty("port", "9001"));
+		int port = Integer.parseInt(System.getProperty("port", "9301"));
+		// Autofind a free port
+		while (true) {
+			HttpRequest request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/info"))
+					.build();
+			try {
+				httpClient.send(request, BodyHandlers.ofString());
+				port ++;
+			} catch (IOException | InterruptedException e) {
+				break;
+			}
+		}
+		
+		
 		portLogin = Integer.parseInt(System.getProperty("portLogin", "9005"));
 
 		int portBus = Integer.parseInt(System.getProperty("portBus", "9207"));
 		log = new LogApi("TwitterService["+port+"]", portBus);
+		
+		int portKVS = Integer.parseInt(System.getProperty("portKeyValueStore", "9231"));
+		
 
+		var queue = BusQueueClient.builder()
+				.port(portBus)
+				.create()
+				.queue("worker");
 		
 		int portGateway = Integer.parseInt(System.getProperty("portGateway", "9021"));
 		registerSelf(port, portGateway);
@@ -184,6 +223,10 @@ public class TwitterService {
 			config.jsonMapper(new JavalinJackson(mapper));
 		});
 
+
+		app.get("/info", ctx -> {
+			ctx.result("OK");
+		});
 		app.get("/members", ctx -> {
 			ctx.json(users());
 		});
@@ -228,6 +271,20 @@ public class TwitterService {
 			}
 			Post newPost = add(jdbi, id, tweet.message);
 			log.info(user.get().name + "=>" + tweet.message);
+			
+			follows(jdbi).stream()
+			.filter(f -> f.idFollowed == id)
+			.map(f -> f.idUser)
+			.forEach(follower -> {
+				log.info("Send task for " + follower);
+				try {
+					queue.send(mapper.writeValueAsString(new NewPostMessage(newPost, follower)));
+				} catch (JsonProcessingException e1) {
+					e1.printStackTrace();
+					log.info("Cannot send message to queue");
+				}
+			});
+			
 			ctx.json(newPost);
 		});
 		app.get("/follow/{idUser}", ctx -> {
@@ -239,12 +296,28 @@ public class TwitterService {
 		});
 		app.get("/timeline", ctx -> {
 			Integer id = Integer.parseInt(ctx.cookie("id"));
+			
+			HttpRequest request = HttpRequest.newBuilder(URI.create("http://localhost:" + portKVS + "/get/timeline_" + id))
+					.build();
+			HttpResponse<String> send = httpClient.send(request, BodyHandlers.ofString());
+			
+			List<Post> current = new ArrayList<>();
+			if (send.statusCode() == HttpCode.OK.getStatus()) {
+				current = mapper.readValue(send.body(), new TypeReference<List<Post>>(){});
+			}
+			
+			ctx.json(current);
+		});
+		app.get("/history", ctx -> {
+			Integer id = Integer.parseInt(ctx.cookie("id"));
+			
 			List<Post> timeline = follows(jdbi).stream()
 					.filter(f -> f.idUser == id)
 					.flatMap(f -> posts(jdbi).stream().filter(p -> p.idAuthor == f.idFollowed))
 					.sorted(reverseOrder(comparing(p -> p.creationDate)))
 					.limit(10)
 					.collect(toList());
+			
 			ctx.json(timeline);
 		});
 
@@ -266,7 +339,14 @@ public class TwitterService {
 	}
 
 	private static void add(Jdbi jdbi, Follow follow) {
-		jdbi.withHandle(h -> h.createUpdate("INSERT INTO follow (idUser, idFollowed) VALUES (:idUser, :idFollowed)").bind("idUser", follow.idUser).bind("idFollowed", follow.idFollowed).execute());
+		try {
+			jdbi.withHandle(h -> h.createUpdate("INSERT INTO follow (idUser, idFollowed) VALUES (:idUser, :idFollowed)")
+					.bind("idUser", follow.idUser).bind("idFollowed", follow.idFollowed).execute());
+		} catch (UnableToExecuteStatementException e) {
+			if (e.getCause() instanceof JdbcSQLIntegrityConstraintViolationException) {
+				throw new BadRequestResponse();
+			}
+		}
 	}
 
 	private static List<Follow> follows(Jdbi jdbi) {
@@ -318,7 +398,8 @@ public class TwitterService {
 		jdbi.registerRowMapper(BeanMapper.factory(Post.class));
 		jdbi.registerRowMapper(BeanMapper.factory(Follow.class));
 		jdbi.withHandle(h -> h.execute("CREATE TABLE IF NOT EXISTS post ( " + "   idPost  VARCHAR(64) PRIMARY KEY, " + "   message  VARCHAR(140), " + "   creationdate  TIMESTAMP," + "   idAuthor  NUMBER" + "   ) "));
-		jdbi.withHandle(h -> h.execute("CREATE TABLE IF NOT EXISTS user ( " + "   id  NUMBER PRIMARY KEY AUTO_INCREMENT, " + "   name  VARCHAR(140) " + "   ) "));
+		jdbi.withHandle(h -> h.execute("CREATE TABLE IF NOT EXISTS follow ( " + "   idUser  NUMBER, " + "   idFollowed  NUMBER " + "   ) "));
+		jdbi.withHandle(h -> h.execute("CREATE UNIQUE INDEX IF NOT EXISTS followindex on follow(iduser, idfollowed)"));
 
 	}
 }
