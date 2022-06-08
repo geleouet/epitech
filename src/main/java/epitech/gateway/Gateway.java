@@ -57,6 +57,14 @@ public class Gateway {
 			cookieStore.getCookies().forEach(h -> {
 				ctx.cookie(h.getName(), h.getValue());
 			});
+			
+			response.headers().map().entrySet()
+                    		.stream()
+                    		.filter(e -> !"content-length".equals(e.getKey()))
+                    		.forEach(e -> {
+                        		e.getValue().forEach(s -> ctx.header(e.getKey(), s));
+                    		});
+			
 			ctx.status(response.statusCode());
 			if (response.body() != null) {
 				ctx.result(response.body());
@@ -93,6 +101,14 @@ public class Gateway {
 			cookieStore.getCookies().forEach(h -> {
 				ctx.cookie(h.getName(), h.getValue());
 			});
+			
+			response.headers().map().entrySet()
+                    		.stream()
+                    		.filter(e -> !"content-length".equals(e.getKey()))
+                    		.forEach(e -> {
+                        		e.getValue().forEach(s -> ctx.header(e.getKey(), s));
+                    		});
+			
 			ctx.status(response.statusCode());
 			if (response.body() != null) {
 				ctx.result(response.body());
